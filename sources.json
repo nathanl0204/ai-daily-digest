@@ -9,7 +9,6 @@
   {"name": "arXiv CS.CL", "url": "https://rss.arxiv.org/rss/cs.CL", "category": "research"},
   {"name": "MIT Technology Review AI", "url": "https://www.technologyreview.com/topic/artificial-intelligence/feed/", "category": "press"},
   {"name": "TechCrunch AI", "url": "https://techcrunch.com/category/artificial-intelligence/feed/", "category": "press"},
-  {"name": "The Verge AI", "url": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml", "category": "press"},
   {"name": "VentureBeat AI", "url": "https://venturebeat.com/category/ai/feed/", "category": "press"},
   {"name": "Ars Technica", "url": "https://feeds.arstechnica.com/arstechnica/index", "category": "press"},
   {"name": "MarkTechPost", "url": "https://www.marktechpost.com/feed/", "category": "press"},
