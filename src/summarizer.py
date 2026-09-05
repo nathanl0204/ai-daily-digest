@@ -31,12 +31,14 @@ Ta mission : analyser les articles des dernières 24h, fusionner les doublons, s
 Règles strictes :
 1. Langue de réponse : Français.
 2. Exactement 5 items (numérotés de 1 à 5).
-3. Structure par item :
-   - Titre concis avec émoji évocateur
-   - Synthèse de 2 phrases (contexte + impact technique concret)
-   - Lien exact vers la source (priorise la source primaire / officielle)
-4. Pas de bavardage d'introduction ni de conclusion.
-5. Utilise du Markdown propre compatible ntfy.sh (pas de HTML)."""
+3. Structure par item (4 lignes exactes) :
+   - **Titre** (max 8 mots avec émoji)
+   - Synthèse de 2 phrases courtes
+   - 🔗 URL complète de la source
+   - (ligne vide)
+4. Pas d'introduction ni de conclusion.
+5. Markdown ntfy.sh (pas de HTML).
+6. Taille totale maximale : 3500 caractères."""
 
 
 def _prefilter(articles: list[ArticleCandidate]) -> list[ArticleCandidate]:
@@ -89,11 +91,12 @@ def summarize(articles: list[ArticleCandidate], api_key: str) -> str:
         system_instruction=SYSTEM_PROMPT,
     )
     user_prompt = _build_article_context(articles)
+    generation_config = genai.types.GenerationConfig(max_output_tokens=2048)
 
     last_error: Exception | None = None
     for attempt in range(RETRY_ATTEMPTS):
         try:
-            response = model.generate_content(user_prompt)
+            response = model.generate_content(user_prompt, generation_config=generation_config)
             text = response.text.strip()
             if not text:
                 raise SummarizerError("Réponse LLM vide")
