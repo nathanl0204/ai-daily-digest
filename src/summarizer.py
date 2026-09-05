@@ -31,29 +31,30 @@ FORMAT EXACT à respecter (copie ce format) :
 
 1. **Titre court** 🚀
 Une phrase de contexte. Une phrase d'impact technique.
-🔗 https://lien-vers-source.com
+[Lien](https://lien-vers-source.com)
 
 2. **Titre court** 🔬
 Une phrase de contexte. Une phrase d'impact technique.
-🔗 https://lien-vers-source.com
+[Lien](https://lien-vers-source.com)
 
 3. **Titre court** 📰
 Une phrase de contexte. Une phrase d'impact technique.
-🔗 https://lien-vers-source.com
+[Lien](https://lien-vers-source.com)
 
 4. **Titre court** 💡
 Une phrase de contexte. Une phrase d'impact technique.
-🔗 https://lien-vers-source.com
+[Lien](https://lien-vers-source.com)
 
 5. **Titre court** 🎯
 Une phrase de contexte. Une phrase d'impact technique.
-🔗 https://lien-vers-source.com
+[Lien](https://lien-vers-source.com)
 
 CONTRAINTES :
 - Langue : Français
 - Chaque titre : max 6 mots
 - Chaque résumé : exactement 2 phrases courtes (max 30 mots chacune)
 - Chaque lien : URL complète et exacte fournie dans les données
+- Utilise la syntaxe Markdown [Lien](URL) pour les liens (OBLIGATOIRE)
 - Pas d'introduction, pas de conclusion, pas de commentaire
 - Total max : 2500 caractères"""
 
