@@ -102,41 +102,48 @@ class SummarizerError(Exception):
 
 
 def _split_articles(text: str) -> list[str]:
-    parts = re.split(r"\n(?=\d+\.\s)", text.strip())
-    return [p.strip() for p in parts if p.strip()]
+    markers = list(re.finditer(r"(?:^|\n)\s*\d+\.\s", text))
+    if not markers:
+        return [text]
 
-
-def _ensure_link(article: str, fallback_link: str = "") -> str:
-    if re.search(r"https?://\S+", article):
-        return article
-    if fallback_link:
-        return article.rstrip() + "\n🔗 " + fallback_link
-    return article
+    articles = []
+    for i, m in enumerate(markers):
+        start = m.start()
+        end = markers[i + 1].start() if i + 1 < len(markers) else len(text)
+        article = text[start:end].strip()
+        if article:
+            articles.append(article)
+    return articles
 
 
 def _compress_article(article: str, budget: int) -> str:
     if len(article.encode("utf-8")) <= budget:
         return article
 
-    link_match = re.search(r"🔗\s*https?://\S+", article)
-    link_line = link_match.group(0) if link_match else ""
-    link_len = len(link_line.encode("utf-8")) if link_line else 0
+    link_match = re.search(r"https?://\S+", article)
+    link_line = ""
+    link_len = 0
+    if link_match:
+        link_line = "🔗 " + link_match.group(0)
+        link_len = len(link_line.encode("utf-8"))
 
     no_link = article[:link_match.start()].rstrip() if link_match else article
+
     title_match = re.match(r"(\d+\.\s+\*\*[^*]+\*\*\s*\S*\s*\n?)", no_link)
     title_line = title_match.group(0) if title_match else ""
     title_len = len(title_line.encode("utf-8"))
 
-    separator = "\n"
-    summary_budget = budget - title_len - link_len - len(separator.encode("utf-8")) - 4
-
+    summary_budget = budget - title_len - link_len - 6
     if summary_budget < 30:
-        return (title_line.rstrip() + "\n" + link_line).strip()
+        result = title_line.rstrip()
+        if link_line:
+            result += "\n" + link_line
+        return result
 
     summary_text = no_link[title_match.end():] if title_match else no_link
     summary_bytes = summary_text.encode("utf-8")
     if len(summary_bytes) <= summary_budget:
-        summary_out = summary_text
+        summary_out = summary_text.strip()
     else:
         truncated = summary_bytes[:summary_budget].decode("utf-8", errors="ignore")
         last_period = truncated.rfind(".")
@@ -144,12 +151,14 @@ def _compress_article(article: str, budget: int) -> str:
         cut = max(last_period, last_space)
         if cut > 30:
             truncated = truncated[:cut + 1]
-        summary_out = truncated.rstrip()
+        summary_out = truncated.strip()
 
-    parts = [title_line.rstrip(), summary_out.strip()]
+    result = title_line.rstrip()
+    if summary_out:
+        result += "\n" + summary_out
     if link_line:
-        parts.append(link_line)
-    return "\n".join(parts)
+        result += "\n" + link_line
+    return result
 
 
 def _fit_to_budget(text: str, budget: int = 4000) -> str:
@@ -157,33 +166,31 @@ def _fit_to_budget(text: str, budget: int = 4000) -> str:
 
     if len(articles) >= 5:
         articles = articles[:5]
-    else:
-        return text[:budget]
+    elif len(articles) < 5:
+        return text.encode("utf-8")[:budget].decode("utf-8", errors="ignore")
 
-    encoded = text.encode("utf-8")
-    if len(encoded) <= budget:
-        return "\n\n".join(articles)
+    total_bytes = sum(len(a.encode("utf-8")) for a in articles)
+    separator = "\n\n"
+    sep_bytes = len(separator.encode("utf-8")) * (len(articles) - 1)
 
-    overhead = len("\n\n".join("").encode("utf-8"))
-    total_article_bytes = sum(len(a.encode("utf-8")) for a in articles)
-    slack = budget - overhead
+    if total_bytes + sep_bytes <= budget:
+        return separator.join(articles)
 
-    if total_article_bytes <= slack:
-        return "\n\n".join(articles)
-
+    slack = budget - sep_bytes
     budgets = []
     for a in articles:
-        ratio = len(a.encode("utf-8")) / total_article_bytes
+        ratio = len(a.encode("utf-8")) / total_bytes
         budgets.append(max(int(slack * ratio), 200))
 
     compressed = [_compress_article(a, b) for a, b in zip(articles, budgets)]
-    result = "\n\n".join(compressed)
+    result = separator.join(compressed)
 
-    if len(result.encode("utf-8")) > budget:
-        result = result.encode("utf-8")[:budget].decode("utf-8", errors="ignore")
-        last_nl = result.rfind("\n\n")
-        if last_nl > 0:
-            result = result[:last_nl]
+    encoded = result.encode("utf-8")
+    if len(encoded) > budget:
+        result = encoded[:budget].decode("utf-8", errors="ignore")
+        last_sep = result.rfind("\n\n")
+        if last_sep > 0:
+            result = result[:last_sep]
 
     return result
 
