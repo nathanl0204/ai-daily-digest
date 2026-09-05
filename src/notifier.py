@@ -8,7 +8,7 @@ NTFY_BASE_URL = "https://ntfy.sh"
 MAX_PAYLOAD_BYTES = 4096
 
 DEFAULT_HEADERS = {
-    "Title": "☕ AI Daily Digest",
+    "Title": "AI Daily Digest",
     "Priority": "default",
     "Tags": "robot,newspaper",
     "Markdown": "yes",
