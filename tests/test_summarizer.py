@@ -69,7 +69,7 @@ class TestBuildArticleContext:
 class TestSummarize:
     @patch("src.summarizer.genai.configure")
     @patch("src.summarizer.genai.GenerativeModel")
-    def test_returns_text_on_success(self, mock_model_cls, mock_configure):
+    def test_returns_list_on_success(self, mock_model_cls, mock_configure):
         mock_response = MagicMock()
         mock_response.text = "**1. Titre**\nRésumé.\n🔗 http://x"
         mock_instance = MagicMock()
@@ -77,8 +77,29 @@ class TestSummarize:
         mock_model_cls.return_value = mock_instance
 
         result = summarize(_make_articles(5), "fake-key")
-        assert "Titre" in result
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert "Titre" in result[0]
         mock_configure.assert_called_once_with(api_key="fake-key")
+
+    @patch("src.summarizer.genai.configure")
+    @patch("src.summarizer.genai.GenerativeModel")
+    def test_returns_multiple_articles(self, mock_model_cls, mock_configure):
+        mock_response = MagicMock()
+        mock_response.text = (
+            "1. **Titre A**\nRésumé A.\n🔗 http://a\n\n"
+            "2. **Titre B**\nRésumé B.\n🔗 http://b\n\n"
+            "3. **Titre C**\nRésumé C.\n🔗 http://c\n\n"
+            "4. **Titre D**\nRésumé D.\n🔗 http://d\n\n"
+            "5. **Titre E**\nRésumé E.\n🔗 http://e"
+        )
+        mock_instance = MagicMock()
+        mock_instance.generate_content.return_value = mock_response
+        mock_model_cls.return_value = mock_instance
+
+        result = summarize(_make_articles(10), "fake-key")
+        assert isinstance(result, list)
+        assert len(result) == 5
 
     @patch("src.summarizer.genai.configure")
     @patch("src.summarizer.genai.GenerativeModel")
@@ -101,7 +122,8 @@ class TestSummarize:
 
         with patch("src.summarizer.time.sleep"):
             result = summarize(_make_articles(2), "fake-key")
-        assert result == "OK"
+        assert isinstance(result, list)
+        assert len(result) == 1
 
     @patch("src.summarizer.genai.configure")
     @patch("src.summarizer.genai.GenerativeModel")

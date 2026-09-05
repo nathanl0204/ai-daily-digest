@@ -113,89 +113,10 @@ def _split_articles(text: str) -> list[str]:
         article = text[start:end].strip()
         if article:
             articles.append(article)
-    return articles
+    return articles[:5]
 
 
-def _compress_article(article: str, budget: int) -> str:
-    if len(article.encode("utf-8")) <= budget:
-        return article
-
-    link_match = re.search(r"https?://\S+", article)
-    link_line = ""
-    link_len = 0
-    if link_match:
-        link_line = "🔗 " + link_match.group(0)
-        link_len = len(link_line.encode("utf-8"))
-
-    no_link = article[:link_match.start()].rstrip() if link_match else article
-
-    title_match = re.match(r"(\d+\.\s+\*\*[^*]+\*\*\s*\S*\s*\n?)", no_link)
-    title_line = title_match.group(0) if title_match else ""
-    title_len = len(title_line.encode("utf-8"))
-
-    summary_budget = budget - title_len - link_len - 6
-    if summary_budget < 30:
-        result = title_line.rstrip()
-        if link_line:
-            result += "\n" + link_line
-        return result
-
-    summary_text = no_link[title_match.end():] if title_match else no_link
-    summary_bytes = summary_text.encode("utf-8")
-    if len(summary_bytes) <= summary_budget:
-        summary_out = summary_text.strip()
-    else:
-        truncated = summary_bytes[:summary_budget].decode("utf-8", errors="ignore")
-        last_period = truncated.rfind(".")
-        last_space = truncated.rfind(" ")
-        cut = max(last_period, last_space)
-        if cut > 30:
-            truncated = truncated[:cut + 1]
-        summary_out = truncated.strip()
-
-    result = title_line.rstrip()
-    if summary_out:
-        result += "\n" + summary_out
-    if link_line:
-        result += "\n" + link_line
-    return result
-
-
-def _fit_to_budget(text: str, budget: int = 4000) -> str:
-    articles = _split_articles(text)
-
-    if len(articles) >= 5:
-        articles = articles[:5]
-    elif len(articles) < 5:
-        return text.encode("utf-8")[:budget].decode("utf-8", errors="ignore")
-
-    total_bytes = sum(len(a.encode("utf-8")) for a in articles)
-    separator = "\n\n"
-    sep_bytes = len(separator.encode("utf-8")) * (len(articles) - 1)
-
-    if total_bytes + sep_bytes <= budget:
-        return separator.join(articles)
-
-    slack = budget - sep_bytes
-    budgets = []
-    for a in articles:
-        ratio = len(a.encode("utf-8")) / total_bytes
-        budgets.append(max(int(slack * ratio), 200))
-
-    compressed = [_compress_article(a, b) for a, b in zip(articles, budgets)]
-    result = separator.join(compressed)
-
-    encoded = result.encode("utf-8")
-    if len(encoded) > budget:
-        result = encoded[:budget].decode("utf-8", errors="ignore")
-        last_sep = result.rfind("\n\n")
-        if last_sep > 0:
-            result = result[:last_sep]
-
-    return result
-
-
-def summarize(articles: list[ArticleCandidate], api_key: str) -> str:
+def summarize(articles: list[ArticleCandidate], api_key: str) -> list[str]:
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel(
         model_name=MODEL_NAME,
@@ -210,7 +131,7 @@ def summarize(articles: list[ArticleCandidate], api_key: str) -> str:
             text = response.text.strip()
             if not text:
                 raise SummarizerError("Réponse LLM vide")
-            return _fit_to_budget(text)
+            return _split_articles(text)
         except Exception as exc:
             last_error = exc
             if attempt < RETRY_ATTEMPTS - 1:

@@ -5,7 +5,7 @@ import sys
 from src.config import get_config, ConfigError
 from src.fetcher import fetch_all
 from src.summarizer import summarize, SummarizerError
-from src.notifier import send_notification, NotifierError
+from src.notifier import send_digest, NotifierError
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,7 +41,7 @@ def main() -> None:
         sys.exit(1)
 
     try:
-        send_notification(digest, topic)
+        send_digest(digest, topic)
     except NotifierError as exc:
         logger.critical("Échec de l'envoi ntfy: %s", exc)
         sys.exit(1)
