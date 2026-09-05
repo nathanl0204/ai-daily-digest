@@ -1,4 +1,5 @@
 import logging
+import time
 
 import requests
 
@@ -49,3 +50,5 @@ def send_digest(articles: list[str], topic: str) -> None:
     for i, article in enumerate(articles, 1):
         title = f"AI Digest [{i}/{total}]"
         send_notification(article, topic, title=title)
+        if i < total:
+            time.sleep(1)
