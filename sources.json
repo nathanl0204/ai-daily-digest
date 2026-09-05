@@ -16,6 +16,7 @@
   {"name": "Ahead of AI (Sebastian Raschka)", "url": "https://magazine.sebastianraschka.com/feed", "category": "newsletter"},
   {"name": "Simon Willison", "url": "https://simonwillison.net/atom/everything/", "category": "blog"},
   {"name": "Last Week in AI", "url": "https://lastweekin.ai/feed", "category": "newsletter"},
+  {"name": "AI Weekly", "url": "https://aiweekly.co/feed", "category": "newsletter"},
   {"name": "Anthropic", "url": "https://rsshub.bestblogs.dev/anthropic/news", "category": "lab"},
   {"name": "ActuIA", "url": "https://www.actuia.com/feed/", "category": "fr_press"},
   {"name": "Le Monde Informatique IA", "url": "https://www.lemondeinformatique.fr/flux-rss/thematique/intelligence-artificielle/rss.xml", "category": "fr_press"},
