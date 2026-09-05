@@ -23,8 +23,11 @@ def send_notification(markdown_body: str, topic: str) -> None:
     url = f"{NTFY_BASE_URL}/{topic}"
     body = markdown_body.encode("utf-8")
     if len(body) > MAX_PAYLOAD_BYTES:
-        logger.warning("Payload %d octets > limite %d — troncature", len(body), MAX_PAYLOAD_BYTES)
+        logger.warning("Payload %d octets > limite %d — troncature intelligente", len(body), MAX_PAYLOAD_BYTES)
         body = body[:MAX_PAYLOAD_BYTES]
+        last_newline = body.rfind(b"\n")
+        if last_newline > 0:
+            body = body[:last_newline]
 
     try:
         resp = requests.post(url, data=body, headers=DEFAULT_HEADERS, timeout=10)
