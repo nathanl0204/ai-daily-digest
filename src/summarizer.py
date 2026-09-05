@@ -102,41 +102,89 @@ class SummarizerError(Exception):
 
 
 def _split_articles(text: str) -> list[str]:
-    parts = re.split(r"\n(?=\d+\.\s+\*\*)", text.strip())
+    parts = re.split(r"\n(?=\d+\.\s)", text.strip())
     return [p.strip() for p in parts if p.strip()]
 
 
-def _truncate_summary(article: str, max_chars: int) -> str:
-    if len(article) <= max_chars:
+def _ensure_link(article: str, fallback_link: str = "") -> str:
+    if re.search(r"https?://\S+", article):
         return article
+    if fallback_link:
+        return article.rstrip() + "\n🔗 " + fallback_link
+    return article
+
+
+def _compress_article(article: str, budget: int) -> str:
+    if len(article.encode("utf-8")) <= budget:
+        return article
+
     link_match = re.search(r"🔗\s*https?://\S+", article)
-    if link_match:
-        link_text = link_match.group(0)
-        available = max_chars - len(link_text) - 4
-        if available > 50:
-            summary_part = article[:available]
-            last_period = max(summary_part.rfind("."), summary_part.rfind(" "))
-            if last_period > 50:
-                summary_part = summary_part[:last_period + 1]
-            return summary_part.rstrip() + "\n" + link_text
-    return article[:max_chars - 3] + "..."
+    link_line = link_match.group(0) if link_match else ""
+    link_len = len(link_line.encode("utf-8")) if link_line else 0
+
+    no_link = article[:link_match.start()].rstrip() if link_match else article
+    title_match = re.match(r"(\d+\.\s+\*\*[^*]+\*\*\s*\S*\s*\n?)", no_link)
+    title_line = title_match.group(0) if title_match else ""
+    title_len = len(title_line.encode("utf-8"))
+
+    separator = "\n"
+    summary_budget = budget - title_len - link_len - len(separator.encode("utf-8")) - 4
+
+    if summary_budget < 30:
+        return (title_line.rstrip() + "\n" + link_line).strip()
+
+    summary_text = no_link[title_match.end():] if title_match else no_link
+    summary_bytes = summary_text.encode("utf-8")
+    if len(summary_bytes) <= summary_budget:
+        summary_out = summary_text
+    else:
+        truncated = summary_bytes[:summary_budget].decode("utf-8", errors="ignore")
+        last_period = truncated.rfind(".")
+        last_space = truncated.rfind(" ")
+        cut = max(last_period, last_space)
+        if cut > 30:
+            truncated = truncated[:cut + 1]
+        summary_out = truncated.rstrip()
+
+    parts = [title_line.rstrip(), summary_out.strip()]
+    if link_line:
+        parts.append(link_line)
+    return "\n".join(parts)
 
 
 def _fit_to_budget(text: str, budget: int = 4000) -> str:
+    articles = _split_articles(text)
+
+    if len(articles) >= 5:
+        articles = articles[:5]
+    else:
+        return text[:budget]
+
     encoded = text.encode("utf-8")
     if len(encoded) <= budget:
-        return text
-    articles = _split_articles(text)
-    if len(articles) < 5:
-        return text[:budget]
-    per_article = (budget - 20) // 5
-    truncated = [_truncate_summary(a, per_article) for a in articles]
-    result = "\n\n".join(truncated)
+        return "\n\n".join(articles)
+
+    overhead = len("\n\n".join("").encode("utf-8"))
+    total_article_bytes = sum(len(a.encode("utf-8")) for a in articles)
+    slack = budget - overhead
+
+    if total_article_bytes <= slack:
+        return "\n\n".join(articles)
+
+    budgets = []
+    for a in articles:
+        ratio = len(a.encode("utf-8")) / total_article_bytes
+        budgets.append(max(int(slack * ratio), 200))
+
+    compressed = [_compress_article(a, b) for a, b in zip(articles, budgets)]
+    result = "\n\n".join(compressed)
+
     if len(result.encode("utf-8")) > budget:
-        result = result[:budget]
-        last_nl = result.rfind("\n")
+        result = result.encode("utf-8")[:budget].decode("utf-8", errors="ignore")
+        last_nl = result.rfind("\n\n")
         if last_nl > 0:
             result = result[:last_nl]
+
     return result
 
 
