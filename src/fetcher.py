@@ -71,7 +71,7 @@ async def _fetch_one(
             if resp.status >= 400:
                 logger.warning("HTTP %d pour %s (%s) — ignoré", resp.status, name, url)
                 return []
-            raw_xml = await resp.text()
+            raw_xml = await resp.text(errors="replace")
     except asyncio.TimeoutError:
         logger.warning("Timeout pour %s (%s) — ignoré", name, url)
         return []
