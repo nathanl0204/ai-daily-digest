@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup
 logger = logging.getLogger(__name__)
 
 SOURCE_TIMEOUT = 5
-TIME_WINDOW_HOURS = 26
+TIME_WINDOW_HOURS = 24
 MAX_SUMMARY_LENGTH = 250
 
 
