@@ -4,7 +4,7 @@ import sys
 
 from src.config import get_config, ConfigError
 from src.fetcher import fetch_all
-from src.summarizer import summarize, SummarizerError
+from src.summarizer import summarize, set_sources, SummarizerError
 from src.notifier import send_digest, NotifierError
 
 logging.basicConfig(
@@ -25,6 +25,7 @@ def main() -> None:
     api_key = config["gemini_api_key"]
     topic = config["ntfy_topic"]
 
+    set_sources(sources)
     logger.info("Démarrage du pipeline — %d sources configurées", len(sources))
 
     articles = asyncio.run(fetch_all(sources))

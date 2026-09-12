@@ -10,7 +10,8 @@ from bs4 import BeautifulSoup
 logger = logging.getLogger(__name__)
 
 SOURCE_TIMEOUT = 5
-TIME_WINDOW_HOURS = 24
+TIME_WINDOW_HOURS = 18
+MAX_ARTICLES_PER_SOURCE = 30
 MAX_SUMMARY_LENGTH = 250
 
 
@@ -93,4 +94,11 @@ async def fetch_all(sources: list[dict]) -> list[ArticleCandidate]:
         results = await asyncio.gather(*tasks)
     articles = [a for batch in results for a in batch]
     articles.sort(key=lambda a: a.published_at, reverse=True)
-    return articles
+    source_counts: dict[str, int] = {}
+    limited: list[ArticleCandidate] = []
+    for art in articles:
+        count = source_counts.get(art.source_name, 0)
+        if count < MAX_ARTICLES_PER_SOURCE:
+            limited.append(art)
+            source_counts[art.source_name] = count + 1
+    return limited
