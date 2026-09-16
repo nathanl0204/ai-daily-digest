@@ -4,7 +4,7 @@ from src.config import load_sources, get_config, ConfigError
 
 def test_load_sources_count():
     sources = load_sources()
-    assert len(sources) == 23
+    assert len(sources) == 22
 
 
 def test_load_sources_structure():
@@ -36,4 +36,4 @@ def test_get_config_success(monkeypatch):
     cfg = get_config()
     assert cfg["gemini_api_key"] == "test-key"
     assert cfg["ntfy_topic"] == "test-topic"
-    assert len(cfg["sources"]) == 23
+    assert len(cfg["sources"]) == 22

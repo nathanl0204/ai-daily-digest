@@ -7,7 +7,6 @@
   {"name": "MIT Technology Review AI", "url": "https://www.technologyreview.com/topic/artificial-intelligence/feed/", "category": "press"},
   {"name": "TechCrunch AI", "url": "https://techcrunch.com/category/artificial-intelligence/feed/", "category": "press"},
   {"name": "VentureBeat AI", "url": "https://venturebeat.com/category/ai/feed/", "category": "press"},
-  {"name": "Ars Technica", "url": "https://feeds.arstechnica.com/arstechnica/index", "category": "press"},
   {"name": "MarkTechPost", "url": "https://www.marktechpost.com/feed/", "category": "press"},
   {"name": "Import AI (Jack Clark)", "url": "https://importai.substack.com/feed", "category": "newsletter"},
   {"name": "Ahead of AI (Sebastian Raschka)", "url": "https://magazine.sebastianraschka.com/feed", "category": "newsletter"},
