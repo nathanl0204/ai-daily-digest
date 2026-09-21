@@ -15,7 +15,6 @@
   {"name": "Anthropic", "url": "https://rsshub.bestblogs.dev/anthropic/news", "category": "lab"},
   {"name": "ActuIA", "url": "https://www.actuia.com/feed/", "category": "fr_press"},
   {"name": "Le Monde Informatique IA", "url": "https://www.lemondeinformatique.fr/flux-rss/thematique/intelligence-artificielle/rss.xml", "category": "fr_press"},
-  {"name": "Développez.com IA", "url": "https://intelligence-artificielle.developpez.com/index/rss", "category": "fr_press"},
   {"name": "Silicon.fr Data & IA", "url": "https://www.silicon.fr/thematique/data-ia-1372/feed", "category": "fr_press"},
   {"name": "Journal du Net IA", "url": "https://www.journaldunet.com/intelligence-artificielle/rss/", "category": "fr_press"},
   {"name": "Le Journal du Hacker IA", "url": "https://www.journalduhacker.net/t/intelligence%20artificielle.rss", "category": "fr_community"},
