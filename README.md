@@ -77,7 +77,7 @@ Le fichier `sources.json` contient les 26 flux RSS/Atom configurés :
 | Press | MIT Tech Review, TechCrunch, VentureBeat, Ars Technica, MarkTechPost |
 | Newsletter | Import AI, Ahead of AI, Last Week in AI |
 | Blog | Simon Willison |
-| FR Press | ActuIA, Le Monde Informatique, Développez.com, Silicon.fr, Journal du Net, Clubic, Sciences et Avenir |
+| FR Press | ActuIA, Le Monde Informatique, Développez.com, Silicon.fr, Clubic, Sciences et Avenir |
 | FR Community | Le Journal du Hacker |
 
 Pour ajouter ou retirer une source, éditer `sources.json`.
