@@ -8,7 +8,7 @@ from src.fetcher import ArticleCandidate
 
 logger = logging.getLogger(__name__)
 
-MODEL_NAME = "gemini-3.6-flash"
+MODEL_NAME = "gemini-3.5-flash"
 MAX_CANDIDATES = 60
 RETRY_ATTEMPTS = 6
 RETRY_BACKOFF = 2

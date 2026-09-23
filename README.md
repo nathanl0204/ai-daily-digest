@@ -102,6 +102,6 @@ ai-daily-digest/
 ## Stack technique
 
 - **Ingestion** : Python, aiohttp, feedparser, BeautifulSoup
-- **LLM** : Google Gemini (gemini-3.6-flash)
+- **LLM** : Google Gemini (gemini-3.5-flash)
 - **Notification** : ntfy.sh (HTTP POST, Markdown)
 - **Orchestration** : GitHub Actions (cron + workflow_dispatch)
