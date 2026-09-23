@@ -12,7 +12,8 @@ MODEL_NAME = "gemini-3.5-flash"
 MAX_CANDIDATES = 60
 RETRY_ATTEMPTS = 6
 RETRY_BACKOFF = 2
-RETRY_WAIT = 65
+TRANSIENT_WAITS = (65, 65, 180, 600, 900)
+RETRY_WAIT = TRANSIENT_WAITS[0]
 TRANSIENT_MARKERS = ("429", "500", "503", "UNAVAILABLE", "RESOURCE_EXHAUSTED", "quota")
 DAILY_QUOTA_MARKER = "GenerateRequestsPerDay"
 
@@ -143,8 +144,10 @@ def summarize(articles: list[ArticleCandidate], api_key: str) -> list[str]:
                 logger.error("Quota journalier Gemini épuisé — abandon immédiat, nouvelle fenêtre dans ~24h")
                 break
             if attempt < RETRY_ATTEMPTS - 1:
-                transient = any(marker in msg for marker in TRANSIENT_MARKERS)
-                wait = RETRY_WAIT if transient else RETRY_BACKOFF ** (attempt + 1)
+                if any(marker in msg for marker in TRANSIENT_MARKERS):
+                    wait = TRANSIENT_WAITS[attempt]
+                else:
+                    wait = RETRY_BACKOFF ** (attempt + 1)
                 logger.warning("Erreur API (tentative %d/%d): %s — retry dans %ds", attempt + 1, RETRY_ATTEMPTS, exc, wait)
                 time.sleep(wait)
             else:
