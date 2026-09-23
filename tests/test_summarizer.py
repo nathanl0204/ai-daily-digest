@@ -81,6 +81,9 @@ class TestSummarize:
         assert len(result) == 1
         assert "Titre" in result[0]
         mock_configure.assert_called_once_with(api_key="fake-key")
+        mock_instance.generate_content.assert_called_once()
+        _, kwargs = mock_instance.generate_content.call_args
+        assert kwargs["request_options"] == {"retry": None}
 
     @patch("src.summarizer.genai.configure")
     @patch("src.summarizer.genai.GenerativeModel")
@@ -130,6 +133,22 @@ class TestSummarize:
             result = summarize(_make_articles(2), "fake-key")
         mock_sleep.assert_called_once_with(RETRY_WAIT)
         assert isinstance(result, list)
+
+    @patch("src.summarizer.genai.configure")
+    @patch("src.summarizer.genai.GenerativeModel")
+    def test_daily_quota_fails_fast_without_retry(self, mock_model_cls, mock_configure):
+        daily_error = Exception(
+            "429 Quota exceeded ... quota_id: \"GenerateRequestsPerDayPerProjectPerModel-FreeTier\""
+        )
+        mock_instance = MagicMock()
+        mock_instance.generate_content.side_effect = daily_error
+        mock_model_cls.return_value = mock_instance
+
+        with patch("src.summarizer.time.sleep") as mock_sleep:
+            with pytest.raises(SummarizerError, match="tentatives"):
+                summarize(_make_articles(2), "fake-key")
+        mock_sleep.assert_not_called()
+        assert mock_instance.generate_content.call_count == 1
 
     @patch("src.summarizer.genai.configure")
     @patch("src.summarizer.genai.GenerativeModel")

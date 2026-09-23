@@ -10,10 +10,11 @@ logger = logging.getLogger(__name__)
 
 MODEL_NAME = "gemini-3.6-flash"
 MAX_CANDIDATES = 60
-RETRY_ATTEMPTS = 4
+RETRY_ATTEMPTS = 6
 RETRY_BACKOFF = 2
 RETRY_WAIT = 65
 TRANSIENT_MARKERS = ("429", "500", "503", "UNAVAILABLE", "RESOURCE_EXHAUSTED", "quota")
+DAILY_QUOTA_MARKER = "GenerateRequestsPerDay"
 
 CATEGORY_PRIORITY = {
     "lab": 0,
@@ -130,15 +131,18 @@ def summarize(articles: list[ArticleCandidate], api_key: str) -> list[str]:
     last_error: Exception | None = None
     for attempt in range(RETRY_ATTEMPTS):
         try:
-            response = model.generate_content(user_prompt)
+            response = model.generate_content(user_prompt, request_options={"retry": None})
             text = response.text.strip()
             if not text:
                 raise SummarizerError("Réponse LLM vide")
             return _split_articles(text)
         except Exception as exc:
             last_error = exc
+            msg = str(exc)
+            if DAILY_QUOTA_MARKER in msg:
+                logger.error("Quota journalier Gemini épuisé — abandon immédiat, nouvelle fenêtre dans ~24h")
+                break
             if attempt < RETRY_ATTEMPTS - 1:
-                msg = str(exc)
                 transient = any(marker in msg for marker in TRANSIENT_MARKERS)
                 wait = RETRY_WAIT if transient else RETRY_BACKOFF ** (attempt + 1)
                 logger.warning("Erreur API (tentative %d/%d): %s — retry dans %ds", attempt + 1, RETRY_ATTEMPTS, exc, wait)
