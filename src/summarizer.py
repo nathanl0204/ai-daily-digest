@@ -10,8 +10,10 @@ logger = logging.getLogger(__name__)
 
 MODEL_NAME = "gemini-3.6-flash"
 MAX_CANDIDATES = 60
-RETRY_ATTEMPTS = 2
+RETRY_ATTEMPTS = 4
 RETRY_BACKOFF = 2
+RETRY_WAIT = 65
+TRANSIENT_MARKERS = ("429", "500", "503", "UNAVAILABLE", "RESOURCE_EXHAUSTED", "quota")
 
 CATEGORY_PRIORITY = {
     "lab": 0,
@@ -136,7 +138,9 @@ def summarize(articles: list[ArticleCandidate], api_key: str) -> list[str]:
         except Exception as exc:
             last_error = exc
             if attempt < RETRY_ATTEMPTS - 1:
-                wait = RETRY_BACKOFF ** (attempt + 1)
+                msg = str(exc)
+                transient = any(marker in msg for marker in TRANSIENT_MARKERS)
+                wait = RETRY_WAIT if transient else RETRY_BACKOFF ** (attempt + 1)
                 logger.warning("Erreur API (tentative %d/%d): %s — retry dans %ds", attempt + 1, RETRY_ATTEMPTS, exc, wait)
                 time.sleep(wait)
             else:

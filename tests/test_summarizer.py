@@ -110,8 +110,26 @@ class TestSummarize:
         mock_instance.generate_content.return_value = mock_response
         mock_model_cls.return_value = mock_instance
 
-        with pytest.raises(SummarizerError, match="Réponse LLM vide"):
-            summarize(_make_articles(2), "fake-key")
+        with patch("src.summarizer.time.sleep"):
+            with pytest.raises(SummarizerError, match="Réponse LLM vide"):
+                summarize(_make_articles(2), "fake-key")
+
+    @patch("src.summarizer.genai.configure")
+    @patch("src.summarizer.genai.GenerativeModel")
+    def test_rate_limit_waits_full_minute(self, mock_model_cls, mock_configure):
+        from src.summarizer import RETRY_WAIT
+
+        mock_instance = MagicMock()
+        mock_instance.generate_content.side_effect = [
+            Exception("429 You exceeded your current quota, please retry in 55s"),
+            MagicMock(text="1. **Titre**\nRésumé.\n[Link](http://x)"),
+        ]
+        mock_model_cls.return_value = mock_instance
+
+        with patch("src.summarizer.time.sleep") as mock_sleep:
+            result = summarize(_make_articles(2), "fake-key")
+        mock_sleep.assert_called_once_with(RETRY_WAIT)
+        assert isinstance(result, list)
 
     @patch("src.summarizer.genai.configure")
     @patch("src.summarizer.genai.GenerativeModel")
