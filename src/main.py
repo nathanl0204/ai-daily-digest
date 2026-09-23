@@ -22,7 +22,7 @@ def main() -> None:
         sys.exit(1)
 
     sources = config["sources"]
-    api_key = config["gemini_api_key"]
+    api_key = config["openrouter_api_key"]
     topic = config["ntfy_topic"]
 
     set_sources(sources)

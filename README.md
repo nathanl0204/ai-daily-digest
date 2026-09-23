@@ -5,7 +5,7 @@ Pipeline automatisé qui collecte, analyse et diffuse un récapitulatif quotidie
 ## Architecture
 
 ```
-26 Flux RSS/Atom → Fetch asynchrone (aiohttp) → LLM Gemini (sélection Top 5) → Push ntfy.sh
+26 Flux RSS/Atom → Fetch asynchrone (aiohttp) → LLM MiMo v2.6 Flash via OpenRouter (sélection Top 5) → Push ntfy.sh
 ```
 
 Exécuté tous les jours à 06:00 UTC via GitHub Actions.
@@ -13,7 +13,7 @@ Exécuté tous les jours à 06:00 UTC via GitHub Actions.
 ## Prérequis
 
 - Python 3.11+
-- Une clé API [Google AI Studio](https://aistudio.google.com/apikey) (gratuite)
+- Une clé API [OpenRouter](https://openrouter.ai/keys)
 - L'application [ntfy](https://ntfy.sh) installée sur smartphone
 
 ## Installation
@@ -35,7 +35,7 @@ cp .env.example .env
 2. Renseigner vos clés dans `.env` :
 
 ```
-GEMINI_API_KEY=clé_api_gemini
+OPENROUTER_API_KEY=clé_api_openrouter
 NTFY_TOPIC=topic_secret_ntfy
 ```
 
@@ -62,7 +62,7 @@ python -m pytest tests/ -v
 Le workflow se déclenche automatiquement chaque jour à 06:00 UTC. Pour le tester manuellement :
 
 1. Pousser le dépôt sur GitHub
-2. Configurer les **Repository Secrets** (`GEMINI_API_KEY` et `NTFY_TOPIC`)
+2. Configurer les **Repository Secrets** (`OPENROUTER_API_KEY` et `NTFY_TOPIC`)
 3. Onglet **Actions** → **AI Daily Digest** → **Run workflow**
 
 ## Sources
@@ -102,6 +102,6 @@ ai-daily-digest/
 ## Stack technique
 
 - **Ingestion** : Python, aiohttp, feedparser, BeautifulSoup
-- **LLM** : Google Gemini (gemini-3.5-flash)
+- **LLM** : Xiaomi MiMo v2.6 Flash (OpenRouter)
 - **Notification** : ntfy.sh (HTTP POST, Markdown)
 - **Orchestration** : GitHub Actions (cron + workflow_dispatch)

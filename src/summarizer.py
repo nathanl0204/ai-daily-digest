@@ -2,20 +2,18 @@ import logging
 import re
 import time
 
-import google.generativeai as genai
+import requests
 
 from src.fetcher import ArticleCandidate
 
 logger = logging.getLogger(__name__)
 
-MODEL_NAME = "gemini-3.5-flash"
+MODEL_NAME = "xiaomi/mimo-v2.6-flash"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 MAX_CANDIDATES = 60
-RETRY_ATTEMPTS = 6
-RETRY_BACKOFF = 2
-TRANSIENT_WAITS = (65, 65, 180, 600, 900)
-RETRY_WAIT = TRANSIENT_WAITS[0]
-TRANSIENT_MARKERS = ("429", "500", "503", "UNAVAILABLE", "RESOURCE_EXHAUSTED", "quota")
-DAILY_QUOTA_MARKER = "GenerateRequestsPerDay"
+RETRY_ATTEMPTS = 3
+RETRY_WAITS = (5, 15)
+REQUEST_TIMEOUT = 120
 
 CATEGORY_PRIORITY = {
     "lab": 0,
@@ -106,6 +104,10 @@ class SummarizerError(Exception):
     pass
 
 
+class _RetryableError(Exception):
+    pass
+
+
 def _split_articles(text: str) -> list[str]:
     markers = list(re.finditer(r"(?:^|\n)\s*\d+\.\s", text))
     if not markers:
@@ -122,32 +124,38 @@ def _split_articles(text: str) -> list[str]:
 
 
 def summarize(articles: list[ArticleCandidate], api_key: str) -> list[str]:
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(
-        model_name=MODEL_NAME,
-        system_instruction=SYSTEM_PROMPT,
-    )
     user_prompt = _build_article_context(articles)
+    payload = {
+        "model": MODEL_NAME,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ],
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
 
     last_error: Exception | None = None
     for attempt in range(RETRY_ATTEMPTS):
         try:
-            response = model.generate_content(user_prompt, request_options={"retry": None})
-            text = response.text.strip()
+            resp = requests.post(
+                OPENROUTER_URL, json=payload, headers=headers, timeout=REQUEST_TIMEOUT
+            )
+            if resp.status_code == 429 or resp.status_code >= 500:
+                raise _RetryableError(f"HTTP {resp.status_code}: {resp.text[:200]}")
+            if not resp.ok:
+                raise SummarizerError(f"HTTP {resp.status_code}: {resp.text[:300]}")
+            data = resp.json()
+            text = (data["choices"][0]["message"]["content"] or "").strip()
             if not text:
-                raise SummarizerError("Réponse LLM vide")
+                raise _RetryableError("Réponse LLM vide")
             return _split_articles(text)
-        except Exception as exc:
+        except (requests.RequestException, ValueError, KeyError, IndexError, _RetryableError) as exc:
             last_error = exc
-            msg = str(exc)
-            if DAILY_QUOTA_MARKER in msg:
-                logger.error("Quota journalier Gemini épuisé — abandon immédiat, nouvelle fenêtre dans ~24h")
-                break
             if attempt < RETRY_ATTEMPTS - 1:
-                if any(marker in msg for marker in TRANSIENT_MARKERS):
-                    wait = TRANSIENT_WAITS[attempt]
-                else:
-                    wait = RETRY_BACKOFF ** (attempt + 1)
+                wait = RETRY_WAITS[attempt]
                 logger.warning("Erreur API (tentative %d/%d): %s — retry dans %ds", attempt + 1, RETRY_ATTEMPTS, exc, wait)
                 time.sleep(wait)
             else:

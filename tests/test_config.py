@@ -24,16 +24,16 @@ def test_load_sources_urls_are_strings():
 
 
 def test_get_config_missing_env(monkeypatch):
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     monkeypatch.delenv("NTFY_TOPIC", raising=False)
     with pytest.raises(ConfigError, match="Variables d'environnement manquantes"):
         get_config()
 
 
 def test_get_config_success(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     monkeypatch.setenv("NTFY_TOPIC", "test-topic")
     cfg = get_config()
-    assert cfg["gemini_api_key"] == "test-key"
+    assert cfg["openrouter_api_key"] == "test-key"
     assert cfg["ntfy_topic"] == "test-topic"
     assert len(cfg["sources"]) == 21

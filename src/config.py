@@ -8,7 +8,7 @@ load_dotenv()
 _BASE_DIR = Path(__file__).resolve().parent.parent
 _SOURCES_PATH = _BASE_DIR / "sources.json"
 
-REQUIRED_ENV_VARS = ("GEMINI_API_KEY", "NTFY_TOPIC")
+REQUIRED_ENV_VARS = ("OPENROUTER_API_KEY", "NTFY_TOPIC")
 
 
 class ConfigError(Exception):
@@ -36,6 +36,6 @@ def get_config() -> dict:
     _validate_env()
     return {
         "sources": load_sources(),
-        "gemini_api_key": os.environ["GEMINI_API_KEY"],
+        "openrouter_api_key": os.environ["OPENROUTER_API_KEY"],
         "ntfy_topic": os.environ["NTFY_TOPIC"],
     }

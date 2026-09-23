@@ -66,109 +66,103 @@ class TestBuildArticleContext:
         assert "Article 0" in ctx
 
 
+def _mock_response(status_code: int = 200, content: str = "1. **Titre**\nRésumé.\n[Link](http://x)"):
+    resp = MagicMock()
+    resp.status_code = status_code
+    resp.ok = status_code < 400
+    resp.text = content if status_code >= 400 else ""
+    resp.json.return_value = {"choices": [{"message": {"content": content}}]}
+    return resp
+
+
 class TestSummarize:
-    @patch("src.summarizer.genai.configure")
-    @patch("src.summarizer.genai.GenerativeModel")
-    def test_returns_list_on_success(self, mock_model_cls, mock_configure):
-        mock_response = MagicMock()
-        mock_response.text = "**1. Titre**\nRésumé.\n🔗 http://x"
-        mock_instance = MagicMock()
-        mock_instance.generate_content.return_value = mock_response
-        mock_model_cls.return_value = mock_instance
+    @patch("src.summarizer.requests.post")
+    def test_returns_list_on_success(self, mock_post):
+        mock_post.return_value = _mock_response(
+            200, "**1. Titre**\nRésumé.\n🔗 http://x"
+        )
 
         result = summarize(_make_articles(5), "fake-key")
         assert isinstance(result, list)
         assert len(result) == 1
         assert "Titre" in result[0]
-        mock_configure.assert_called_once_with(api_key="fake-key")
-        mock_instance.generate_content.assert_called_once()
-        _, kwargs = mock_instance.generate_content.call_args
-        assert kwargs["request_options"] == {"retry": None}
+        mock_post.assert_called_once()
+        _, kwargs = mock_post.call_args
+        assert kwargs["json"]["model"] == "xiaomi/mimo-v2.6-flash"
+        assert kwargs["headers"]["Authorization"] == "Bearer fake-key"
+        roles = [m["role"] for m in kwargs["json"]["messages"]]
+        assert roles == ["system", "user"]
 
-    @patch("src.summarizer.genai.configure")
-    @patch("src.summarizer.genai.GenerativeModel")
-    def test_returns_multiple_articles(self, mock_model_cls, mock_configure):
-        mock_response = MagicMock()
-        mock_response.text = (
+    @patch("src.summarizer.requests.post")
+    def test_returns_multiple_articles(self, mock_post):
+        mock_post.return_value = _mock_response(
+            200,
             "1. **Titre A**\nRésumé A.\n🔗 http://a\n\n"
             "2. **Titre B**\nRésumé B.\n🔗 http://b\n\n"
             "3. **Titre C**\nRésumé C.\n🔗 http://c\n\n"
             "4. **Titre D**\nRésumé D.\n🔗 http://d\n\n"
-            "5. **Titre E**\nRésumé E.\n🔗 http://e"
+            "5. **Titre E**\nRésumé E.\n🔗 http://e",
         )
-        mock_instance = MagicMock()
-        mock_instance.generate_content.return_value = mock_response
-        mock_model_cls.return_value = mock_instance
 
         result = summarize(_make_articles(10), "fake-key")
         assert isinstance(result, list)
         assert len(result) == 5
 
-    @patch("src.summarizer.genai.configure")
-    @patch("src.summarizer.genai.GenerativeModel")
-    def test_raises_on_empty_response(self, mock_model_cls, mock_configure):
-        mock_response = MagicMock()
-        mock_response.text = ""
-        mock_instance = MagicMock()
-        mock_instance.generate_content.return_value = mock_response
-        mock_model_cls.return_value = mock_instance
+    @patch("src.summarizer.requests.post")
+    def test_raises_on_empty_response(self, mock_post):
+        mock_post.return_value = _mock_response(200, "")
 
         with patch("src.summarizer.time.sleep"):
             with pytest.raises(SummarizerError, match="Réponse LLM vide"):
                 summarize(_make_articles(2), "fake-key")
+        from src.summarizer import RETRY_ATTEMPTS
 
-    @patch("src.summarizer.genai.configure")
-    @patch("src.summarizer.genai.GenerativeModel")
-    def test_rate_limit_waits_full_minute(self, mock_model_cls, mock_configure):
-        from src.summarizer import RETRY_WAIT
+        assert mock_post.call_count == RETRY_ATTEMPTS
 
-        mock_instance = MagicMock()
-        mock_instance.generate_content.side_effect = [
-            Exception("429 You exceeded your current quota, please retry in 55s"),
-            MagicMock(text="1. **Titre**\nRésumé.\n[Link](http://x)"),
+    @patch("src.summarizer.requests.post")
+    def test_rate_limit_retries_with_short_wait(self, mock_post):
+        from src.summarizer import RETRY_WAITS
+
+        mock_post.side_effect = [
+            _mock_response(429, "rate limited"),
+            _mock_response(200, "1. **Titre**\nRésumé.\n[Link](http://x)"),
         ]
-        mock_model_cls.return_value = mock_instance
 
         with patch("src.summarizer.time.sleep") as mock_sleep:
             result = summarize(_make_articles(2), "fake-key")
-        mock_sleep.assert_called_once_with(RETRY_WAIT)
+        mock_sleep.assert_called_once_with(RETRY_WAITS[0])
+        assert RETRY_WAITS[0] <= 5
         assert isinstance(result, list)
 
-    @patch("src.summarizer.genai.configure")
-    @patch("src.summarizer.genai.GenerativeModel")
-    def test_daily_quota_fails_fast_without_retry(self, mock_model_cls, mock_configure):
-        daily_error = Exception(
-            "429 Quota exceeded ... quota_id: \"GenerateRequestsPerDayPerProjectPerModel-FreeTier\""
-        )
-        mock_instance = MagicMock()
-        mock_instance.generate_content.side_effect = daily_error
-        mock_model_cls.return_value = mock_instance
+    @patch("src.summarizer.requests.post")
+    def test_fatal_401_fails_fast_without_retry(self, mock_post):
+        mock_post.return_value = _mock_response(401, "invalid api key")
 
         with patch("src.summarizer.time.sleep") as mock_sleep:
-            with pytest.raises(SummarizerError, match="tentatives"):
+            with pytest.raises(SummarizerError, match="401"):
                 summarize(_make_articles(2), "fake-key")
         mock_sleep.assert_not_called()
-        assert mock_instance.generate_content.call_count == 1
+        assert mock_post.call_count == 1
 
-    @patch("src.summarizer.genai.configure")
-    @patch("src.summarizer.genai.GenerativeModel")
-    def test_retries_on_exception(self, mock_model_cls, mock_configure):
-        mock_instance = MagicMock()
-        mock_instance.generate_content.side_effect = [Exception("API error"), MagicMock(text="OK")]
-        mock_model_cls.return_value = mock_instance
+    @patch("src.summarizer.requests.post")
+    def test_retries_on_transient_503(self, mock_post):
+        mock_post.side_effect = [
+            _mock_response(503, "service unavailable"),
+            _mock_response(200, "1. **Titre**\nRésumé.\n[Link](http://x)"),
+        ]
 
         with patch("src.summarizer.time.sleep"):
             result = summarize(_make_articles(2), "fake-key")
         assert isinstance(result, list)
         assert len(result) == 1
 
-    @patch("src.summarizer.genai.configure")
-    @patch("src.summarizer.genai.GenerativeModel")
-    def test_raises_after_all_retries(self, mock_model_cls, mock_configure):
-        mock_instance = MagicMock()
-        mock_instance.generate_content.side_effect = Exception("Persistent error")
-        mock_model_cls.return_value = mock_instance
+    @patch("src.summarizer.requests.post")
+    def test_raises_after_all_retries(self, mock_post):
+        from src.summarizer import RETRY_ATTEMPTS
+
+        mock_post.return_value = _mock_response(503, "Persistent error")
 
         with patch("src.summarizer.time.sleep"):
             with pytest.raises(SummarizerError, match="Échec du résumé"):
                 summarize(_make_articles(2), "fake-key")
+        assert mock_post.call_count == RETRY_ATTEMPTS
