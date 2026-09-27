@@ -26,6 +26,7 @@ def send_notification(markdown_body: str, topic: str, title: str | None = None) 
     if len(body) > MAX_PAYLOAD_BYTES:
         logger.warning("Payload %d octets > limite %d — troncature intelligente", len(body), MAX_PAYLOAD_BYTES)
         body = body[:MAX_PAYLOAD_BYTES]
+        body = body.decode("utf-8", errors="ignore").encode("utf-8")
         last_newline = body.rfind(b"\n")
         if last_newline > 0:
             body = body[:last_newline]

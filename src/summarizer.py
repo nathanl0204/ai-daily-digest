@@ -1,6 +1,9 @@
 import logging
 import re
 import time
+import unicodedata
+from difflib import SequenceMatcher
+from urllib.parse import quote
 
 import requests
 
@@ -56,6 +59,7 @@ CONTRAINTES :
 - Chaque titre : max 6 mots
 - Chaque résumé : exactement 2 phrases courtes (max 30 mots chacune)
 - Chaque lien : URL complète et exacte fournie dans les données
+- N'invente jamais d'URL : recopie strictement celles fournies, sans espace ni retour à la ligne
 - Utilise la syntaxe Markdown [Lien](URL) pour les liens (OBLIGATOIRE)
 - Pas d'introduction, pas de conclusion, pas de commentaire
 - Total max : 2500 caractères"""
@@ -100,8 +104,79 @@ def _build_article_context(articles: list[ArticleCandidate]) -> str:
     return _build_user_prompt(filtered)
 
 
+LINK_RE = re.compile(r"\[([^\]]*)\]\s*\(((?:[^()]|\([^()]*\))*)\)")
+_URL_SAFE = ":/?#[]@!$&'+,;=%~"
+_URL_SIMILARITY_THRESHOLD = 0.7
+_TITLE_COVERAGE_THRESHOLD = 0.6
+
+
 class SummarizerError(Exception):
     pass
+
+
+def _normalize_url(url: str) -> str:
+    return quote(url.strip(), safe=_URL_SAFE)
+
+
+def _fold(text: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", text)
+    stripped = "".join(c for c in decomposed if not unicodedata.combining(c))
+    return re.sub(r"[^\w]+", " ", stripped.casefold()).strip()
+
+
+def _match_known_url(url: str, known: set[str]) -> str | None:
+    candidate = _normalize_url(url)
+    if candidate in known:
+        return candidate
+    if not url.rstrip().endswith(")"):
+        restored = _normalize_url(url + ")")
+        if restored in known:
+            return restored
+    best, best_ratio = None, 0.0
+    for option in known:
+        ratio = SequenceMatcher(None, candidate, option).ratio()
+        if ratio > best_ratio:
+            best, best_ratio = option, ratio
+    if best is not None and best_ratio >= _URL_SIMILARITY_THRESHOLD:
+        return best
+    return None
+
+
+def _match_title_link(title: str, articles: list[ArticleCandidate]) -> str | None:
+    title_tokens = set(_fold(title).split())
+    if not title_tokens:
+        return None
+    best_link, best_coverage = None, 0.0
+    for art in articles:
+        article_tokens = set(_fold(art.title).split())
+        if not article_tokens or not art.link:
+            continue
+        coverage = len(title_tokens & article_tokens) / len(title_tokens)
+        if coverage > best_coverage:
+            best_link, best_coverage = art.link, coverage
+    if best_link and best_coverage >= _TITLE_COVERAGE_THRESHOLD:
+        return _normalize_url(best_link)
+    return None
+
+
+def repair_digest_links(digest: list[str], articles: list[ArticleCandidate]) -> list[str]:
+    known = {_normalize_url(a.link) for a in articles if a.link}
+    repaired: list[str] = []
+    for item in digest:
+        title_match = re.search(r"\*\*(.+?)\*\*", item)
+
+        def _fix(match: re.Match) -> str:
+            text, url = match.group(1), match.group(2)
+            fixed = _match_known_url(url, known)
+            if fixed is None and title_match:
+                fixed = _match_title_link(title_match.group(1), articles)
+            if fixed is None:
+                logger.warning("Lien LLM non vérifiable supprimé: %s", url)
+                return text
+            return f"[{text}]({fixed})"
+
+        repaired.append(LINK_RE.sub(_fix, item))
+    return repaired
 
 
 class _RetryableError(Exception):
@@ -151,7 +226,7 @@ def summarize(articles: list[ArticleCandidate], api_key: str) -> list[str]:
             text = (data["choices"][0]["message"]["content"] or "").strip()
             if not text:
                 raise _RetryableError("Réponse LLM vide")
-            return _split_articles(text)
+            return repair_digest_links(_split_articles(text), _prefilter(articles))
         except (requests.RequestException, ValueError, KeyError, IndexError, _RetryableError) as exc:
             last_error = exc
             if attempt < RETRY_ATTEMPTS - 1:

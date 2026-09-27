@@ -61,6 +61,19 @@ class TestSendNotification:
         assert len(sent_body) == MAX_PAYLOAD_BYTES
 
     @patch("src.notifier.requests.post")
+    def test_truncation_keeps_valid_utf8(self, mock_post):
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_post.return_value = mock_resp
+
+        body = "x" + "é" * (MAX_PAYLOAD_BYTES // 2 + 10)
+        send_notification(body, "t")
+
+        sent_body = mock_post.call_args[1]["data"]
+        assert len(sent_body) <= MAX_PAYLOAD_BYTES
+        assert sent_body.decode("utf-8")
+
+    @patch("src.notifier.requests.post")
     def test_success_with_valid_payload(self, mock_post):
         mock_resp = MagicMock()
         mock_resp.raise_for_status = MagicMock()

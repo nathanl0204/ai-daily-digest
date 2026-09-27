@@ -8,6 +8,7 @@ from src.summarizer import (
     _prefilter,
     _build_article_context,
     summarize,
+    repair_digest_links,
     SummarizerError,
     MAX_CANDIDATES,
     CATEGORY_PRIORITY,
@@ -166,3 +167,80 @@ class TestSummarize:
             with pytest.raises(SummarizerError, match="Échec du résumé"):
                 summarize(_make_articles(2), "fake-key")
         assert mock_post.call_count == RETRY_ATTEMPTS
+
+    @patch("src.summarizer.requests.post")
+    def test_summarize_repairs_hallucinated_link(self, mock_post):
+        mock_post.return_value = _mock_response(
+            200,
+            "1. **Titre**\nRésumé.\n[Link](https://example.com/0-wrong-slug)",
+        )
+
+        result = summarize(_make_articles(5), "fake-key")
+        assert "https://example.com/0-wrong-slug" not in result[0]
+        assert "[Link](https://example.com/0)" in result[0]
+
+
+def _article(title: str, link: str) -> ArticleCandidate:
+    return ArticleCandidate(
+        source_name="Src",
+        title=title,
+        link=link,
+        summary="s",
+        published_at=datetime.now(timezone.utc),
+    )
+
+
+class TestRepairDigestLinks:
+    def test_keeps_valid_known_link(self):
+        arts = [_article("Un titre", "https://example.com/post")]
+        out = repair_digest_links(
+            ["1. **Un titre** 🚀\nRésumé.\n[Lien](https://example.com/post)"], arts
+        )
+        assert "[Lien](https://example.com/post)" in out[0]
+
+    def test_encodes_space_in_url(self):
+        arts = [_article("Titre", "https://example.com/mon%20article")]
+        out = repair_digest_links(
+            ["1. **Titre**\nRésumé.\n[Lien](https://example.com/mon article)"], arts
+        )
+        assert "[Lien](https://example.com/mon%20article)" in out[0]
+
+    def test_encodes_parens_to_markdown_safe_url(self):
+        arts = [_article("Titre", "https://en.wikipedia.org/wiki/Foo_(bar)")]
+        out = repair_digest_links(
+            ["1. **Titre**\nRésumé.\n[Lien](https://en.wikipedia.org/wiki/Foo_(bar))"], arts
+        )
+        assert "[Lien](https://en.wikipedia.org/wiki/Foo_%28bar%29)" in out[0]
+
+    def test_fixes_space_between_bracket_and_paren(self):
+        arts = [_article("Titre", "https://example.com/post")]
+        out = repair_digest_links(
+            ["1. **Titre**\nRésumé.\n[Lien] (https://example.com/post)"], arts
+        )
+        assert "[Lien](https://example.com/post)" in out[0]
+
+    def test_replaces_hallucinated_url_by_similarity(self):
+        arts = [_article("Titre", "https://openai.com/index/gpt-5")]
+        out = repair_digest_links(
+            ["1. **Titre**\nRésumé.\n[Lien](https://openai.com/index/gpt-5-release-2025)"],
+            arts,
+        )
+        assert "[Lien](https://openai.com/index/gpt-5)" in out[0]
+
+    def test_title_fallback_when_url_is_garbage(self):
+        arts = [_article("OpenAI releases GPT-5 model", "https://openai.com/index/gpt-5")]
+        out = repair_digest_links(
+            ["1. **OpenAI GPT-5 release** 🚀\nRésumé.\n[Lien](https://made-up.example/foo)"],
+            arts,
+        )
+        assert "[Lien](https://openai.com/index/gpt-5)" in out[0]
+
+    def test_strips_unrecoverable_link(self):
+        arts = [_article("Autre sujet totally different", "https://example.com/x")]
+        out = repair_digest_links(
+            ["1. **Zorglub quantum** 🚀\nRésumé.\n[Lien](https://made-up.example/foo)"],
+            arts,
+        )
+        assert "[Lien](" not in out[0]
+        assert "https://made-up.example" not in out[0]
+        assert "Lien" in out[0]
