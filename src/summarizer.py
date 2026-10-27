@@ -11,7 +11,7 @@ from src.fetcher import ArticleCandidate
 
 logger = logging.getLogger(__name__)
 
-MODEL_NAME = "xiaomi/mimo-v2.6-flash"
+MODEL_NAME = "z-ai/glm-5.3-flash"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 MAX_CANDIDATES = 60
 RETRY_ATTEMPTS = 3

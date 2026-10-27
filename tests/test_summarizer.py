@@ -89,7 +89,7 @@ class TestSummarize:
         assert "Titre" in result[0]
         mock_post.assert_called_once()
         _, kwargs = mock_post.call_args
-        assert kwargs["json"]["model"] == "xiaomi/mimo-v2.6-flash"
+        assert kwargs["json"]["model"] == "z-ai/glm-5.3-flash"
         assert kwargs["headers"]["Authorization"] == "Bearer fake-key"
         roles = [m["role"] for m in kwargs["json"]["messages"]]
         assert roles == ["system", "user"]

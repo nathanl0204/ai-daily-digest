@@ -5,7 +5,7 @@ Pipeline automatisé qui collecte, analyse et diffuse un récapitulatif quotidie
 ## Architecture
 
 ```
-26 Flux RSS/Atom → Fetch asynchrone (aiohttp) → LLM MiMo v2.6 Flash via OpenRouter (sélection Top 5) → Push ntfy.sh
+26 Flux RSS/Atom → Fetch asynchrone (aiohttp) → LLM GLM 5.3 Flash via OpenRouter (sélection Top 5) → Push ntfy.sh
 ```
 
 Exécuté tous les jours à 06:00 UTC via GitHub Actions.
@@ -102,6 +102,6 @@ ai-daily-digest/
 ## Stack technique
 
 - **Ingestion** : Python, aiohttp, feedparser, BeautifulSoup
-- **LLM** : Xiaomi MiMo v2.6 Flash (OpenRouter)
+- **LLM** : GLM 5.3 Flash (OpenRouter)
 - **Notification** : ntfy.sh (HTTP POST, Markdown)
 - **Orchestration** : GitHub Actions (cron + workflow_dispatch)
